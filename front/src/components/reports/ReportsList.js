@@ -143,7 +143,7 @@ const ReportsList = () => {
         <div className="d-flex flex-wrap gap-2">
           {files.map((file) => {
             const isImage = file.mimetype?.startsWith('image/');
-            const fileUrl = `${API_URL}{/files/report/${file.filename}}`;
+            const fileUrl = `${API_URL}/files/report/${file.filename}`;
             const isAuthor = file.uploaded_by === user.id;
 
 

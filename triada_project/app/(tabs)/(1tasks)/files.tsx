@@ -18,7 +18,6 @@ import {
   Snackbar,
   Chip,
   TextInput,
-  List,
   Divider,
 } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
@@ -47,10 +46,38 @@ interface MediaAsset {
   fileName?: string;
   type: 'image' | 'video' | 'document';
   size?: number;
+  mimeType?: string;
   duration?: number;
   width?: number;
   height?: number;
 }
+
+// Вспомогательная функция для определения MIME-типа по расширению (fallback)
+const getMimeTypeFromFileName = (fileName: string): string => {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  const mimeMap: Record<string, string> = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    pdf: 'application/pdf',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    txt: 'text/plain',
+    rtf: 'application/rtf',
+  };
+  return mimeMap[ext] || 'application/octet-stream';
+};
+
+// Дедупликация
+const deduplicateAssets = (newAssets: MediaAsset[], existingAssets: MediaAsset[]): MediaAsset[] => {
+  return newAssets.filter(newItem => !existingAssets.some(existing => existing.id === newItem.id));
+};
 
 export default function TaskFilesScreen() {
   const theme = useTheme();
@@ -66,14 +93,11 @@ export default function TaskFilesScreen() {
   const [selectedAssets, setSelectedAssets] = useState<MediaAsset[]>([]);
   const [showAddPanel, setShowAddPanel] = useState(false);
   
-  // Состояния для предпросмотра
   const [selectedMedia, setSelectedMedia] = useState<FileItem | null>(null);
   const [mediaModalVisible, setMediaModalVisible] = useState(false);
 
   useEffect(() => {
-    if (taskData) {
-      loadFiles();
-    }
+    if (taskData) loadFiles();
   }, []);
 
   const loadFiles = async () => {
@@ -120,7 +144,6 @@ export default function TaskFilesScreen() {
     }
   };
 
-  // Сделать фото
   const takePhoto = async () => {
     const hasPermission = await requestCameraPermission();
     if (!hasPermission) {
@@ -137,7 +160,6 @@ export default function TaskFilesScreen() {
     }
   };
 
-  // Записать видео
   const recordVideo = async () => {
     const hasPermission = await requestCameraPermission();
     if (!hasPermission) {
@@ -155,7 +177,6 @@ export default function TaskFilesScreen() {
     }
   };
 
-  // Выбор документов
   const pickDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -163,14 +184,14 @@ export default function TaskFilesScreen() {
         multiple: true,
         copyToCacheDirectory: true,
       });
-
       if (!result.canceled && result.assets) {
         const docs = result.assets.map(asset => ({
           uri: asset.uri,
           id: `doc-${Date.now()}-${Math.random()}`,
-          fileName: asset.name,
+          name: asset.name,
           type: 'document' as const,
           size: asset.size,
+          mimeType: asset.mimeType,
         }));
         handleSelectedAssets(docs);
       }
@@ -180,34 +201,36 @@ export default function TaskFilesScreen() {
     }
   };
 
-  // Обработка выбранных файлов
   const handleSelectedAssets = (assets: any[]) => {
     const newAssets: MediaAsset[] = assets.map(asset => {
+      let type: 'image' | 'video' | 'document' = asset.type;
+      let fileName = asset.fileName || `media-${Date.now()}.${asset.type === 'video' ? 'mp4' : 'jpg'}`;
+      let mimeType = asset.mimeType;
+
       if (asset.type === 'document') {
-        return {
-          uri: asset.uri,
-          id: asset.id,
-          fileName: asset.name,
-          type: 'document',
-          size: asset.size,
-        };
-      } else {
-        return {
-          uri: asset.uri,
-          id: asset.assetId || `media-${Date.now()}-${Math.random()}`,
-          fileName: asset.fileName || `media-${Date.now()}.${asset.type === 'video' ? 'mp4' : 'jpg'}`,
-          type: asset.type as 'image' | 'video',
-          duration: asset.duration,
-          width: asset.width,
-          height: asset.height,
-        };
+        type = 'document';
+        fileName = asset.name;
+        mimeType = asset.mimeType;
       }
+
+      if (!mimeType) {
+        mimeType = getMimeTypeFromFileName(fileName);
+      }
+
+      return {
+        uri: asset.uri,
+        id: asset.assetId || `media-${Date.now()}-${Math.random()}`,
+        fileName: fileName,
+        type: type,
+        size: asset.size,
+        mimeType: mimeType,
+        duration: asset.duration,
+        width: asset.width,
+        height: asset.height,
+      };
     });
 
-    const uniqueNewAssets = newAssets.filter(
-      newItem => !selectedAssets.some(existing => existing.id === newItem.id)
-    );
-
+    const uniqueNewAssets = deduplicateAssets(newAssets, selectedAssets);
     if (uniqueNewAssets.length > 0) {
       setSelectedAssets(prev => [...prev, ...uniqueNewAssets]);
       setSnackbarMessage(`Добавлено ${uniqueNewAssets.length} файлов`);
@@ -225,12 +248,14 @@ export default function TaskFilesScreen() {
 
     setIsUploading(true);
     try {
-      const filesToUpload = selectedAssets.map(asset => ({
-        uri: asset.uri,
-        name: asset.fileName,
-        type: asset.type === 'video' ? 'video/mp4' : 
-              asset.type === 'image' ? 'image/jpeg' : 'application/octet-stream',
-      }));
+      const filesToUpload = selectedAssets.map(asset => {
+        const mimeType = asset.mimeType || getMimeTypeFromFileName(asset.fileName || 'file');
+        return {
+          uri: asset.uri,
+          name: asset.fileName,
+          type: mimeType,
+        };
+      });
 
       const descriptions = selectedAssets.map(() => newFileDescription || null);
 
@@ -292,7 +317,6 @@ export default function TaskFilesScreen() {
       setSelectedMedia(file);
       setMediaModalVisible(true);
     } else {
-      // Для остальных типов открываем через браузер
       Alert.alert('Открытие файла', 'Открыть файл во внешнем приложении?', [
         { text: 'Отмена', style: 'cancel' },
         {
@@ -300,11 +324,8 @@ export default function TaskFilesScreen() {
           onPress: async () => {
             const url = fileService.getFileUrl(file.entity_type, file.filename);
             const canOpen = await Linking.canOpenURL(url);
-            if (canOpen) {
-              Linking.openURL(url);
-            } else {
-              Alert.alert('Ошибка', 'Не удалось открыть файл');
-            }
+            if (canOpen) Linking.openURL(url);
+            else Alert.alert('Ошибка', 'Не удалось открыть файл');
           },
         },
       ]);
@@ -328,7 +349,13 @@ export default function TaskFilesScreen() {
     return 'insert-drive-file';
   };
 
-  // Рендер элемента списка файлов
+  const getFileIcon = (mimeType: string) => {
+    if (mimeType.startsWith('image/')) return 'image';
+    if (mimeType === 'application/pdf') return 'picture-as-pdf';
+    if (mimeType.startsWith('video/')) return 'videocam';
+    return 'insert-drive-file';
+  };
+
   const renderFileItem = ({ item }: { item: FileItem }) => {
     const isImage = item.mimetype.startsWith('image/');
     const isVideo = item.mimetype.startsWith('video/');
@@ -372,17 +399,12 @@ export default function TaskFilesScreen() {
               {item.description ? ` • ${item.description}` : ''}
             </Text>
           </View>
-          <IconButton
-            icon="delete"
-            size={20}
-            onPress={() => handleDeleteFile(item.id)}
-          />
+          <IconButton icon="delete" size={20} onPress={() => handleDeleteFile(item.id)} />
         </View>
       </TouchableOpacity>
     );
   };
 
-  // Панель добавления
   const renderAddPanel = () => (
     <View style={styles.addPanel}>
       <Text variant="titleMedium">Добавление файлов</Text>
@@ -473,7 +495,6 @@ export default function TaskFilesScreen() {
         onRefresh={loadFiles}
       />
 
-      {/* Модальное окно для предпросмотра медиа */}
       <Modal
         visible={mediaModalVisible}
         transparent={true}
@@ -520,11 +541,3 @@ export default function TaskFilesScreen() {
     </View>
   );
 }
-
-// Вспомогательная функция для получения иконки файла по mimeType
-const getFileIcon = (mimeType: string) => {
-  if (mimeType.startsWith('image/')) return 'image';
-  if (mimeType === 'application/pdf') return 'picture-as-pdf';
-  if (mimeType.startsWith('video/')) return 'videocam';
-  return 'insert-drive-file';
-};

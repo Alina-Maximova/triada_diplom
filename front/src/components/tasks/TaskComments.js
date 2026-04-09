@@ -1,23 +1,14 @@
+// src/components/task/TaskComments.js
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Modal,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Button,
-  Input,
-  FormGroup,
-  Spinner,
-  Alert,
-  ListGroup,
-  ListGroupItem,
-  Badge
+  Modal, ModalHeader, ModalBody, ModalFooter, Button,
+  Input, FormGroup, Spinner, Alert, ListGroup, ListGroupItem, Badge
 } from 'reactstrap';
 import {
   useGetTaskCommentsQuery,
   useAddCommentMutation,
   useDeleteCommentMutation,
-  useUploadFileMutation,
+  useUploadMultipleFilesMutation,
   useGetEntityFilesQuery,
   useDeleteFileMutation
 } from '../../redux/apiSlice';
@@ -32,14 +23,24 @@ import ImageIcon from '@mui/icons-material/Image';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import CloseIcon from '@mui/icons-material/Close';
+import PlayCircleIcon from '@mui/icons-material/PlayCircle';
+import VideoModal from './VideoModal';
+import {
+  compressImage,
+  checkVideoDuration,
+  deduplicateFiles
+} from '../../utils/mediaHelpers';
 
-// Компонент для отображения файлов комментария (с миниатюрами для изображений)
+// ------------------------------------------------------------
+// Компонент для отображения файлов комментария (без миниатюры видео)
+// ------------------------------------------------------------
 const CommentFiles = ({ commentId }) => {
   const { data: files = [], isLoading, refetch } = useGetEntityFilesQuery(
     { entity_type: 'comment', entity_id: commentId },
     { skip: !commentId }
   );
   const [deleteFile] = useDeleteFileMutation();
+  const [videoModal, setVideoModal] = useState({ open: false, url: '', title: '' });
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
@@ -55,6 +56,10 @@ const CommentFiles = ({ commentId }) => {
     }
   };
 
+  const openVideo = (url, name) => {
+    setVideoModal({ open: true, url, title: name });
+  };
+
   if (isLoading) return <Spinner size="sm" className="mt-2" />;
   if (!files || files.length === 0) return null;
 
@@ -67,25 +72,40 @@ const CommentFiles = ({ commentId }) => {
       <div className="d-flex flex-wrap gap-2">
         {files.map((file) => {
           const isImage = file.mimetype?.startsWith('image/');
+          const isVideo = file.mimetype?.startsWith('video/');
+          const fileUrl = `${API_URL}/files/comment/${file.filename}`;
           return (
             <div key={file.id} className="position-relative">
               {isImage ? (
-                <a href={`${API_URL}/files/comment/${file.filename}`} target="_blank" rel="noopener noreferrer">
+                <a href={fileUrl} target="_blank" rel="noopener noreferrer">
                   <img
-                    src={`${API_URL}/files/comment/${file.filename}`}
+                    src={fileUrl}
                     alt={file.originalname}
                     style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 4, border: '1px solid #dee2e6' }}
                     loading="lazy"
                   />
                 </a>
               ) : (
-                <Badge color="light" className="p-2 d-flex align-items-center" style={{ gap: '4px' }}>
-                  {file.mimetype === 'application/pdf' ? <PictureAsPdfIcon fontSize="small" /> : <InsertDriveFileIcon fontSize="small" />}
+                // Для видео и всех остальных файлов показываем Badge
+                <Badge
+                  color="light"
+                  className="p-2 d-flex align-items-center"
+                  style={{ gap: '4px', cursor: isVideo ? 'pointer' : 'default' }}
+                  onClick={isVideo ? () => openVideo(fileUrl, file.originalname) : undefined}
+                >
+                  {isVideo ? (
+                    <PlayCircleIcon fontSize="small" style={{ color: '#ef8810' }} />
+                  ) : file.mimetype === 'application/pdf' ? (
+                    <PictureAsPdfIcon fontSize="small" />
+                  ) : (
+                    <InsertDriveFileIcon fontSize="small" />
+                  )}
                   <a
-                    href={`${API_URL}/files/comment/${file.filename}`}
-                    target="_blank"
+                    href={!isVideo ? fileUrl : '#'}
+                    target={!isVideo ? '_blank' : undefined}
                     rel="noopener noreferrer"
                     style={{ textDecoration: 'none', color: '#212529' }}
+                    onClick={(e) => isVideo && e.preventDefault()}
                   >
                     {file.originalname.length > 20 ? file.originalname.substring(0, 17) + '...' : file.originalname}
                   </a>
@@ -113,15 +133,24 @@ const CommentFiles = ({ commentId }) => {
           );
         })}
       </div>
+      <VideoModal
+        isOpen={videoModal.open}
+        toggle={() => setVideoModal({ open: false, url: '', title: '' })}
+        url={videoModal.url}
+        title={videoModal.title}
+      />
     </div>
   );
 };
 
+// ------------------------------------------------------------
+// Основной компонент TaskComments (без изменений)
+// ------------------------------------------------------------
 const TaskComments = ({ isOpen, toggle, taskId, taskTitle }) => {
   const { data: comments = [], isLoading, refetch } = useGetTaskCommentsQuery(taskId, { skip: !taskId });
   const [addComment] = useAddCommentMutation();
   const [deleteComment] = useDeleteCommentMutation();
-  const [uploadFile] = useUploadFileMutation();
+  const [uploadMultipleFiles] = useUploadMultipleFilesMutation();
 
   const [newComment, setNewComment] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -129,7 +158,6 @@ const TaskComments = ({ isOpen, toggle, taskId, taskTitle }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const fileInputRef = useRef(null);
-
   const commentsEndRef = useRef(null);
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -139,6 +167,9 @@ const TaskComments = ({ isOpen, toggle, taskId, taskTitle }) => {
     }
   }, [comments]);
 
+  // ------------------------------------------------------------
+  // Вспомогательные функции форматирования даты
+  // ------------------------------------------------------------
   const formatDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -181,30 +212,73 @@ const TaskComments = ({ isOpen, toggle, taskId, taskTitle }) => {
     return 'дней';
   };
 
-  const handleFileSelect = (e) => {
+  // ------------------------------------------------------------
+  // Обработка файлов (сжатие, дедупликация, проверка видео)
+  // ------------------------------------------------------------
+  const handleFileSelect = async (e) => {
     const files = Array.from(e.target.files);
-    setSelectedFiles(prev => [...prev, ...files]);
+    const uniqueFiles = deduplicateFiles(files, selectedFiles);
+    if (uniqueFiles.length === 0) {
+      toast.info('Все выбранные файлы уже добавлены');
+      return;
+    }
+
+    const processed = [];
+    for (const file of uniqueFiles) {
+      let processedFile = file;
+      try {
+        if (file.type.startsWith('image/')) {
+          processedFile = await compressImage(file, 0.8);
+        } else if (file.type.startsWith('video/')) {
+          const isValid = await checkVideoDuration(file, 60);
+          if (!isValid) {
+            toast.warning(`Видео "${file.name}" длиннее 60 секунд и не будет загружено`);
+            continue;
+          }
+        }
+        processed.push(processedFile);
+      } catch (err) {
+        console.error('Ошибка обработки файла:', err);
+        toast.error(`Ошибка обработки файла "${file.name}"`);
+      }
+    }
+
+    if (processed.length > 0) {
+      setSelectedFiles(prev => [...prev, ...processed]);
+      toast.success(`Добавлено ${processed.length} файлов (изображения сжаты)`);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const removeSelectedFile = (index) => {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const uploadSelectedFiles = async ({comment, commentId}) => {
+  const getFileIcon = (file) => {
+    if (file.type?.startsWith('image/')) return <ImageIcon fontSize="small" />;
+    if (file.type === 'application/pdf') return <PictureAsPdfIcon fontSize="small" />;
+    if (file.type?.startsWith('video/')) return <PlayCircleIcon fontSize="small" />;
+    return <InsertDriveFileIcon fontSize="small" />;
+  };
+
+  // ------------------------------------------------------------
+  // Загрузка файлов (пакетная)
+  // ------------------------------------------------------------
+  const uploadSelectedFiles = async (commentId) => {
     if (selectedFiles.length === 0) return;
     setUploading(true);
     try {
-      const uploadPromises = selectedFiles.map(async (file) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('entity_type', 'comment');
-        formData.append('entity_id', commentId);
-        formData.append('task_id', taskId);
-
-        formData.append('description', `Вложение к комментарию '${comment}'`);
-        return uploadFile(formData).unwrap();
+      const formData = new FormData();
+      selectedFiles.forEach(file => {
+        formData.append('files', file);
       });
-      await Promise.all(uploadPromises);
+      formData.append('entity_type', 'comment');
+      formData.append('entity_id', String(commentId));
+      formData.append('task_id', String(taskId));
+      const descriptions = selectedFiles.map(() => `Вложение к комментарию '${newComment.trim() || ''}'`);
+      formData.append('descriptions', JSON.stringify(descriptions));
+
+      await uploadMultipleFiles(formData).unwrap();
       toast.success(`Загружено ${selectedFiles.length} файлов`);
       setSelectedFiles([]);
     } catch (error) {
@@ -216,6 +290,9 @@ const TaskComments = ({ isOpen, toggle, taskId, taskTitle }) => {
     }
   };
 
+  // ------------------------------------------------------------
+  // Добавление комментария + файлов
+  // ------------------------------------------------------------
   const handleAddComment = async () => {
     if (!newComment.trim() && selectedFiles.length === 0) {
       toast.error('Введите текст комментария или выберите файлы');
@@ -223,7 +300,6 @@ const TaskComments = ({ isOpen, toggle, taskId, taskTitle }) => {
     }
 
     let createdCommentId = null;
-
     try {
       setIsSubmitting(true);
       const commentResult = await addComment({
@@ -234,7 +310,7 @@ const TaskComments = ({ isOpen, toggle, taskId, taskTitle }) => {
       createdCommentId = commentResult.id || commentResult;
 
       if (selectedFiles.length > 0) {
-        await uploadSelectedFiles({comment:newComment.trim(), commentId:createdCommentId});
+        await uploadSelectedFiles(createdCommentId);
       }
 
       toast.success('Комментарий добавлен');
@@ -243,7 +319,6 @@ const TaskComments = ({ isOpen, toggle, taskId, taskTitle }) => {
       refetch();
     } catch (error) {
       console.error('Error adding comment or files:', error);
-
       if (createdCommentId) {
         try {
           await deleteComment(createdCommentId).unwrap();
@@ -252,13 +327,15 @@ const TaskComments = ({ isOpen, toggle, taskId, taskTitle }) => {
           console.error('Не удалось удалить комментарий после ошибки:', deleteError);
         }
       }
-
       toast.error(error.data?.error || 'Не удалось добавить комментарий');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // ------------------------------------------------------------
+  // Удаление комментария
+  // ------------------------------------------------------------
   const handleDeleteComment = async (commentId) => {
     if (!window.confirm('Вы уверены, что хотите удалить этот комментарий?')) return;
     try {
@@ -281,12 +358,9 @@ const TaskComments = ({ isOpen, toggle, taskId, taskTitle }) => {
     }
   };
 
-  const getFileIcon = (mimeType) => {
-    if (mimeType?.startsWith('image/')) return <ImageIcon fontSize="small" />;
-    if (mimeType === 'application/pdf') return <PictureAsPdfIcon fontSize="small" />;
-    return <InsertDriveFileIcon fontSize="small" />;
-  };
-
+  // ------------------------------------------------------------
+  // Рендер
+  // ------------------------------------------------------------
   return (
     <Modal isOpen={isOpen} toggle={toggle} size="lg" style={{ maxWidth: '800px' }}>
       <ModalHeader toggle={toggle}>
@@ -347,7 +421,6 @@ const TaskComments = ({ isOpen, toggle, taskId, taskTitle }) => {
                   <div className="comment-content" style={{ marginLeft: '42px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                     {comment.content}
                   </div>
-                  {/* Отображение файлов комментария с миниатюрами */}
                   <CommentFiles commentId={comment.id} />
                 </ListGroupItem>
               );
@@ -388,17 +461,17 @@ const TaskComments = ({ isOpen, toggle, taskId, taskTitle }) => {
                 ref={fileInputRef}
                 style={{ display: 'none' }}
                 onChange={handleFileSelect}
-                accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                accept="image/*,video/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
               />
-              <small className="text-muted ms-2">Макс. 20MB на файл</small>
+              <small className="text-muted ms-2">Макс. 20MB на файл, видео до 60 сек</small>
             </div>
             {selectedFiles.length > 0 && (
               <div className="mt-2 p-2 border rounded">
                 <strong>Выбрано файлов: {selectedFiles.length}</strong>
                 <div className="d-flex flex-wrap gap-2 mt-1">
                   {selectedFiles.map((file, idx) => (
-                    <Badge key={idx}  className="p-2 d-flex align-items-center">
-                      {getFileIcon(file.type)} {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                    <Badge key={idx} className="p-2 d-flex align-items-center">
+                      {getFileIcon(file)} {file.name} ({(file.size / 1024).toFixed(1)} KB)
                       <CloseIcon fontSize="small" style={{ marginLeft: '4px', cursor: 'pointer' }} onClick={() => removeSelectedFile(idx)} />
                     </Badge>
                   ))}

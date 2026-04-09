@@ -23,7 +23,6 @@ const Login = () => {
     try {
       const response = await login({ username, password }).unwrap();
       console.log(response)
-      setTimeout(4000000)
       
       dispatch(setCredentials({
         token: response.token

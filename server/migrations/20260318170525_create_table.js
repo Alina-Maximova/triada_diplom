@@ -45,7 +45,7 @@ exports.up = async function (knex) {
     table.enu('status', ['new', 'in_progress', 'paused', 'completed', 'report_added', 'accepted_by_customer', 'rejected'])
       .defaultTo('new')
       .notNullable();
-
+ 
     table.timestamp('created_at').defaultTo(knex.fn.now());
     table.timestamp('updated_at').defaultTo(knex.fn.now());
 

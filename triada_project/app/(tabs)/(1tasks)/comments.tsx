@@ -38,15 +38,49 @@ import { CacheService } from '@/services/cacheService';
 import { STORAGE_KEYS } from '@/constants';
 import { CommentPageStyles } from '@/styles/comment/CommentPageStyles';
 
+// ============================================================
+// Вспомогательные функции
+// ============================================================
+
+// Определение MIME-типа по расширению файла (fallback)
+const getMimeTypeFromFileName = (fileName: string): string => {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  const mimeMap: Record<string, string> = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    pdf: 'application/pdf',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    txt: 'text/plain',
+    rtf: 'application/rtf',
+  };
+  return mimeMap[ext] || 'application/octet-stream';
+};
+
+// Дедупликация файлов по id
+const deduplicateAssets = (newAssets: any[], existingAssets: MediaAsset[]): any[] => {
+  return newAssets.filter(newItem => !existingAssets.some(existing => existing.id === newItem.id));
+};
+
 interface MediaAsset {
   uri: string;
   id: string;
   fileName?: string;
   type: 'image' | 'video' | 'document';
   size?: number;
+  mimeType?: string; // сохраняем MIME-тип из picker
 }
 
-// Компонент для отображения файлов комментария
+// ============================================================
+// Компонент отображения файлов комментария
+// ============================================================
 const CommentFiles = ({ commentId, onMediaPress }: { commentId: number; onMediaPress: (file: any) => void }) => {
   const theme = useTheme();
   const [files, setFiles] = useState<any[]>([]);
@@ -68,9 +102,8 @@ const CommentFiles = ({ commentId, onMediaPress }: { commentId: number; onMediaP
       const commentFiles = await fileService.getEntityFiles('comment', commentId);
       setFiles(commentFiles);
     } catch (error) {
-      // Игнорируем ошибки при отсутствии интернета
       if (error?.message?.includes('Network Error') || error?.code === 'ERR_NETWORK') {
-        // Не выводим в консоль
+        // игнорируем ошибки сети
       } else {
         console.error('Error loading comment files:', error);
       }
@@ -78,8 +111,6 @@ const CommentFiles = ({ commentId, onMediaPress }: { commentId: number; onMediaP
       setLoading(false);
     }
   };
-
-
 
   const getFileIcon = (mimeType: string) => {
     if (mimeType.startsWith('image/')) return 'image';
@@ -122,7 +153,6 @@ const CommentFiles = ({ commentId, onMediaPress }: { commentId: number; onMediaP
             ) : (
               <MaterialIcons name={getFileIcon(file.mimetype)} size={24} color={theme.colors.primary} style={{ marginRight: 8 }} />
             )}
-           
           </TouchableOpacity>
         );
       })}
@@ -130,6 +160,9 @@ const CommentFiles = ({ commentId, onMediaPress }: { commentId: number; onMediaP
   );
 };
 
+// ============================================================
+// Основной компонент CommentsPage
+// ============================================================
 export default function CommentsPage() {
   const theme = useTheme();
   const styles = CommentPageStyles(theme);
@@ -137,14 +170,7 @@ export default function CommentsPage() {
   const taskData = taskParam ? JSON.parse(taskParam as string) as Task : null;
   
   const { task, loadTask } = useTasks();
-  const { 
-    comments, 
-    isLoading, 
-    error, 
-    refreshComments,
-    addComment,
-    deleteComment
-  } = useComments();
+  const { comments, isLoading, error, refreshComments, addComment, deleteComment } = useComments();
   
   const [newComment, setNewComment] = useState('');
   const [selectedAssets, setSelectedAssets] = useState<MediaAsset[]>([]);
@@ -153,8 +179,6 @@ export default function CommentsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [showFilePicker, setShowFilePicker] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
-
-  // Состояния для предпросмотра медиа
   const [selectedMediaFile, setSelectedMediaFile] = useState<any | null>(null);
   const [mediaModalVisible, setMediaModalVisible] = useState(false);
 
@@ -163,9 +187,7 @@ export default function CommentsPage() {
   }, []);
 
   useEffect(() => {
-    if (task) {
-      loadComments();
-    }
+    if (task) loadComments();
   }, [task]);
 
   const loadTaskData = async () => {
@@ -194,7 +216,45 @@ export default function CommentsPage() {
     setRefreshing(false);
   }, [task]);
 
-  // Функции для выбора файлов
+  // ========== Обработка выбора файлов с оптимизацией и правильным MIME ==========
+  const handleSelectedAssets = async (assets: any[]) => {
+    const newAssets: MediaAsset[] = assets.map(asset => {
+      let type: 'image' | 'video' | 'document' = asset.type;
+      let fileName = asset.fileName || `media-${Date.now()}.${asset.type === 'video' ? 'mp4' : 'jpg'}`;
+      let mimeType = asset.mimeType;
+
+      // Для документов из DocumentPicker
+      if (asset.type === 'document') {
+        type = 'document';
+        fileName = asset.name;
+        mimeType = asset.mimeType;
+      }
+
+      // Если mimeType отсутствует, определяем по расширению
+      if (!mimeType) {
+        mimeType = getMimeTypeFromFileName(fileName);
+      }
+
+      return {
+        uri: asset.uri,
+        id: asset.assetId || `media-${Date.now()}-${Math.random()}`,
+        fileName: fileName,
+        type: type,
+        size: asset.size,
+        mimeType: mimeType,
+      };
+    });
+
+    const uniqueNewAssets = deduplicateAssets(newAssets, selectedAssets);
+    if (uniqueNewAssets.length > 0) {
+      setSelectedAssets(prev => [...prev, ...uniqueNewAssets]);
+      setSnackbarMessage(`Добавлено ${uniqueNewAssets.length} файлов`);
+    } else {
+      setSnackbarMessage('Эти файлы уже добавлены');
+    }
+  };
+
+  // Выбор из галереи
   const pickFromGallery = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -209,7 +269,7 @@ export default function CommentsPage() {
       videoMaxDuration: 60,
     });
     if (!result.canceled && result.assets) {
-      handleSelectedAssets(result.assets);
+      await handleSelectedAssets(result.assets);
     }
   };
 
@@ -225,7 +285,7 @@ export default function CommentsPage() {
       allowsEditing: false,
     });
     if (!result.canceled && result.assets) {
-      handleSelectedAssets(result.assets);
+      await handleSelectedAssets(result.assets);
     }
   };
 
@@ -242,7 +302,7 @@ export default function CommentsPage() {
       allowsEditing: true,
     });
     if (!result.canceled && result.assets) {
-      handleSelectedAssets(result.assets);
+      await handleSelectedAssets(result.assets);
     }
   };
 
@@ -257,11 +317,12 @@ export default function CommentsPage() {
         const docs = result.assets.map(asset => ({
           uri: asset.uri,
           id: `doc-${Date.now()}-${Math.random()}`,
-          fileName: asset.name,
-          type: 'document' as const,
+          name: asset.name,
+          type: 'document',
           size: asset.size,
+          mimeType: asset.mimeType, // DocumentPicker возвращает mimeType
         }));
-        handleSelectedAssets(docs);
+        await handleSelectedAssets(docs);
       }
     } catch (error) {
       console.error('Error picking document:', error);
@@ -269,52 +330,23 @@ export default function CommentsPage() {
     }
   };
 
-  const handleSelectedAssets = (assets: any[]) => {
-    const newAssets: MediaAsset[] = assets.map(asset => {
-      if (asset.type === 'document') {
-        return {
-          uri: asset.uri,
-          id: asset.id,
-          fileName: asset.name,
-          type: 'document',
-          size: asset.size,
-        };
-      } else {
-        return {
-          uri: asset.uri,
-          id: asset.assetId || `media-${Date.now()}-${Math.random()}`,
-          fileName: asset.fileName || `media-${Date.now()}.${asset.type === 'video' ? 'mp4' : 'jpg'}`,
-          type: asset.type as 'image' | 'video',
-          size: asset.size,
-        };
-      }
-    });
-
-    const uniqueNewAssets = newAssets.filter(
-      newItem => !selectedAssets.some(existing => existing.id === newItem.id)
-    );
-
-    if (uniqueNewAssets.length > 0) {
-      setSelectedAssets(prev => [...prev, ...uniqueNewAssets]);
-      setSnackbarMessage(`Добавлено ${uniqueNewAssets.length} файлов`);
-    } else {
-      setSnackbarMessage('Эти файлы уже добавлены');
-    }
-  };
-
   const removeSelectedAsset = (index: number) => {
     setSelectedAssets(prev => prev.filter((_, i) => i !== index));
   };
 
+  // ========== Загрузка файлов на сервер (пакетная) ==========
   const uploadSelectedFiles = async (commentId: number) => {
     if (selectedAssets.length === 0) return;
 
-    const filesToUpload = selectedAssets.map(asset => ({
-      uri: asset.uri,
-      name: asset.fileName,
-      type: asset.type === 'video' ? 'video/mp4' : 
-            asset.type === 'image' ? 'image/jpeg' : 'application/octet-stream',
-    }));
+    const filesToUpload = selectedAssets.map(asset => {
+      // Используем сохранённый mimeType, если есть, иначе fallback
+      const mimeType = asset.mimeType || getMimeTypeFromFileName(asset.fileName || 'file');
+      return {
+        uri: asset.uri,
+        name: asset.fileName || `file-${Date.now()}`,
+        type: mimeType,
+      };
+    });
 
     const descriptions = selectedAssets.map(() => newComment.trim() || null);
 
@@ -327,6 +359,7 @@ export default function CommentsPage() {
     );
   };
 
+  // ========== Добавление комментария ==========
   const handleSubmitComment = async () => {
     if (!task || (!newComment.trim() && selectedAssets.length === 0)) {
       Alert.alert('Ошибка', 'Введите комментарий или выберите файлы');
@@ -337,7 +370,6 @@ export default function CommentsPage() {
 
     try {
       setIsSubmitting(true);
-
       const isConnected = await CacheService.isConnected();
 
       const commentResult = await addComment({
@@ -356,10 +388,8 @@ export default function CommentsPage() {
       setSnackbarMessage('Комментарий добавлен');
 
       if (isConnected) {
-        // Онлайн: обновляем список комментариев с сервера
         await refreshComments(task.id);
       } else {
-        // Офлайн: не делаем сетевой запрос, пользователь увидит временный комментарий
         setSnackbarMessage('Комментарий сохранён локально и будет отправлен при появлении интернета');
       }
       
@@ -369,7 +399,6 @@ export default function CommentsPage() {
       
     } catch (error) {
       console.error('Error adding comment or files:', error);
-      
       if (createdCommentId) {
         try {
           await deleteComment(createdCommentId);
@@ -378,13 +407,13 @@ export default function CommentsPage() {
           console.error('Не удалось удалить комментарий после ошибки:', deleteError);
         }
       }
-
       setSnackbarMessage('Ошибка добавления комментария');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // ========== Форматирование даты ==========
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const today = new Date();
@@ -392,26 +421,17 @@ export default function CommentsPage() {
     yesterday.setDate(yesterday.getDate() - 1);
     
     if (date.toDateString() === today.toDateString()) {
-      return `Сегодня в ${date.toLocaleTimeString('ru-RU', {
-        hour: '2-digit',
-        minute: '2-digit'
-      })}`;
+      return `Сегодня в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
     }
     if (date.toDateString() === yesterday.toDateString()) {
-      return `Вчера в ${date.toLocaleTimeString('ru-RU', {
-        hour: '2-digit',
-        minute: '2-digit'
-      })}`;
+      return `Вчера в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
     }
     return date.toLocaleDateString('ru-RU', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
     });
   };
 
+  // ========== Открытие медиа ==========
   const handleMediaPress = (file: any) => {
     const isImage = file.mimetype?.startsWith('image/');
     const isVideo = file.mimetype?.startsWith('video/');
@@ -419,7 +439,6 @@ export default function CommentsPage() {
       setSelectedMediaFile(file);
       setMediaModalVisible(true);
     } else {
-      // Для документов открываем через браузер
       Alert.alert('Открытие файла', 'Открыть файл во внешнем приложении?', [
         { text: 'Отмена', style: 'cancel' },
         {
@@ -438,6 +457,7 @@ export default function CommentsPage() {
     setSelectedMediaFile(null);
   };
 
+  // ========== Рендер комментария ==========
   const renderComment = (comment: Comment, index: number) => (
     <Card key={comment.id} style={styles.commentCard}>
       <Card.Content>
@@ -453,11 +473,9 @@ export default function CommentsPage() {
             </Text>
           </View>
         </View>
-        
         <Text variant="bodyMedium" style={styles.commentContent}>
           {comment.content}
         </Text>
-
         <CommentFiles commentId={comment.id} onMediaPress={handleMediaPress} />
       </Card.Content>
       {index < comments.length - 1 && <Divider style={styles.commentDivider} />}
@@ -472,35 +490,19 @@ export default function CommentsPage() {
         </Text>
         <View style={styles.taskDetails}>
           <View style={styles.taskDetailRow}>
-            <Text variant="bodySmall" style={styles.taskDetailLabel}>
-              Заказчик:
-            </Text>
-            <Text variant="bodyMedium" style={styles.taskDetailValue}>
-              {task?.customer}
-            </Text>
+            <Text variant="bodySmall" style={styles.taskDetailLabel}>Заказчик:</Text>
+            <Text variant="bodyMedium" style={styles.taskDetailValue}>{task?.customer}</Text>
           </View>
           <View style={styles.taskDetailRow}>
-            <Text variant="bodySmall" style={styles.taskDetailLabel}>
-              Статус:
-            </Text>
-                    <Text variant="bodyMedium" style={[styles.taskDetailValue, 
-              task?.status === 'completed' ? styles.statusCompleted :
-              task?.status === 'in_progress' ? styles.statusInProgress :
-              task?.status === 'new' ? styles.statusNew :
-              task?.status === 'paused' ? styles.statusError :
-              task?.status === 'report_added' ? styles.statusCompleted :
-              task?.status === 'accepted_by_customer' ? styles.statusCompleted :
-              task?.status === 'rejected' ? styles.statusError :
-              styles.statusOther
-            ]}>
+            <Text variant="bodySmall" style={styles.taskDetailLabel}>Статус:</Text>
+            <Text variant="bodyMedium" style={[styles.taskDetailValue]}>
               {task?.status === 'new' ? 'Новая' :
                task?.status === 'in_progress' ? 'В работе' :
                task?.status === 'completed' ? 'Выполнена' :
                task?.status === 'paused' ? 'На паузе' :
                task?.status === 'report_added' ? 'Добавлен отчет' :
                task?.status === 'accepted_by_customer' ? 'Принято заказчиком' :
-               task?.status === 'rejected' ? 'Отклонено заказчиком' :
-               task?.status}
+               task?.status === 'rejected' ? 'Отклонено заказчиком' : task?.status}
             </Text>
           </View>
         </View>
@@ -612,11 +614,9 @@ export default function CommentsPage() {
             renderEmptyState()
           )}
           
-          {/* Добавляем отступ внизу, чтобы контент не перекрывался полем ввода */}
           <View style={{ height: 80 }} />
         </ScrollView>
 
-        {/* Нижняя панель ввода (всегда прижата к низу) */}
         <View style={{ backgroundColor: theme.colors.background, borderTopWidth: 1, borderTopColor: theme.colors.outlineVariant }}>
           <View style={{ padding: 8 }}>
             <TextInput
@@ -668,7 +668,6 @@ export default function CommentsPage() {
           {snackbarMessage}
         </Snackbar>
 
-        {/* Модальное окно для просмотра медиафайлов */}
         <Modal
           visible={mediaModalVisible}
           transparent={true}

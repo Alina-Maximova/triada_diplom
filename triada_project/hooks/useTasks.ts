@@ -15,7 +15,6 @@ export const useTasks = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const loadTasks = useCallback(async () => {
-    console.log(SecureStore.getItemAsync(STORAGE_KEYS.AUTH_TOKEN))
     const token = await SecureStore.getItemAsync(STORAGE_KEYS.AUTH_TOKEN);
     if (!token) return; // не авторизован – не грузим
 

@@ -258,7 +258,7 @@ exports.getFile = async (req, res) => {
   try {
     const dir = getEntityDirectory(entity_type);
     const safeFilename = path.basename(filename);
-    const filePath = path.join(dir, safeFilename); // абсолютный путь
+    const filePath = path.join(dir, safeFilename);
 
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Файл не найден' });
@@ -269,7 +269,14 @@ exports.getFile = async (req, res) => {
     const stat = fs.statSync(filePath);
     const fileSize = stat.size;
 
+    // Общая обработка для всех типов файлов
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Length', fileSize);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'public, max-age=31536000'); // кэширование на год
+
     if (fileType === 'video') {
+      // Обработка range-запросов для видео
       const range = req.headers.range;
       if (range) {
         const parts = range.replace(/bytes=/, '').split('-');
@@ -285,27 +292,32 @@ exports.getFile = async (req, res) => {
           'Content-Type': mimeType,
         });
         fileStream.pipe(res);
-      } else {
-        res.writeHead(200, {
-          'Content-Length': fileSize,
-          'Content-Type': mimeType,
+        fileStream.on('error', (err) => {
+          console.error('Stream error:', err);
+          if (!res.headersSent) res.status(500).end();
         });
-        fs.createReadStream(filePath).pipe(res);
+      } else {
+        const fileStream = fs.createReadStream(filePath);
+        fileStream.pipe(res);
+        fileStream.on('error', (err) => {
+          console.error('Stream error:', err);
+          if (!res.headersSent) res.status(500).end();
+        });
       }
     } else {
-      // Для изображений и документов используем sendFile с абсолютным путём
-      res.sendFile(filePath, (err) => {
-        if (err) {
-          console.error('Error sending file:', err);
-          if (!res.headersSent) {
-            res.status(500).json({ error: 'Ошибка при отправке файла' });
-          }
-        }
+      // Для изображений и документов используем поток вместо sendFile
+      const fileStream = fs.createReadStream(filePath);
+      fileStream.pipe(res);
+      fileStream.on('error', (err) => {
+        console.error('Stream error:', err);
+        if (!res.headersSent) res.status(500).end();
       });
     }
   } catch (error) {
     console.error('Error getting file:', error);
-    res.status(500).json({ error: 'Ошибка при получении файла' });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Ошибка при получении файла' });
+    }
   }
 };
 

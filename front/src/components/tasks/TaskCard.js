@@ -87,7 +87,7 @@ const TaskCard = ({
         return [];
       case 'report_added':
         return [
-          { value: 'accepted_by_customer', label: 'Принять клиентом', color: 'primary', description: 'Клиент принял работgу', icon: <ThumbUpIcon fontSize="small" /> },
+          { value: 'accepted_by_customer', label: 'Принять клиентом', color: 'primary', description: 'Клиент принял работу', icon: <ThumbUpIcon fontSize="small" /> },
           { value: 'rejected', label: 'Отклонить клиентом', color: 'danger', description: 'Клиент отклонил работу', icon: <CancelIcon fontSize="small" /> }
         ];
       case 'rejected':
