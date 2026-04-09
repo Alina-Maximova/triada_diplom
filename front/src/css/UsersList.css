@@ -1,0 +1,207 @@
+/* UsersList.css с общим стилем */
+.users-container {
+  min-height: calc(100vh - 100px);
+}
+
+.users-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid var(--primary-orange);
+}
+
+.users-header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  color: var(--primary-dark);
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Загрузка */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.loading-container p {
+  color: var(--text-light);
+  margin-top: 1rem;
+}
+
+/* Отсутствие данных */
+.no-users {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  color: var(--text-light);
+}
+
+.no-users p {
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Таблица */
+.users-card {
+  border: none;
+  box-shadow: var(--card-shadow);
+}
+
+.users-table {
+  margin-bottom: 0;
+}
+
+.users-table thead th {
+  border-top: none;
+  font-weight: 600;
+  color: var(--text-dark);
+  padding: 1rem;
+  background-color: var(--light-gray);
+  border-bottom: 2px solid var(--primary-orange);
+}
+
+.users-table tbody td {
+  padding: 1rem;
+  vertical-align: middle;
+  border-color: var(--medium-gray);
+}
+
+.user-row:hover {
+  background-color: var(--light-gray);
+}
+
+/* ID пользователя */
+.user-id {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.5rem;
+  background-color: var(--medium-gray);
+  color: var(--text-light);
+  border-radius: 4px;
+}
+
+/* Информация о пользователе */
+.user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-weight: 500;
+  color: var(--text-dark);
+}
+
+.user-email {
+  font-size: 0.85rem;
+  color: var(--text-medium);
+}
+
+/* Роль */
+.role-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.role-badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  width: fit-content;
+}
+
+.role-name small {
+  color: var(--text-light);
+}
+
+/* Дата */
+.date-info small {
+  color: var(--text-light);
+}
+
+/* Кнопка удаления */
+.delete-btn {
+  font-size: 0.875rem;
+  padding: 0.25rem 0.75rem;
+}
+
+/* Статистика */
+.users-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background-color: var(--light-gray);
+  border-top: 1px solid var(--border-color);
+}
+
+.role-stats {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Модальное окно */
+.user-details p {
+  margin-bottom: 0.5rem;
+}
+
+.user-details strong {
+  color: var(--text-dark);
+  margin-right: 0.5rem;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .users-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .users-table {
+    font-size: 0.9rem;
+  }
+  
+  .users-table thead th,
+  .users-table tbody td {
+    padding: 0.75rem 0.5rem;
+  }
+  
+  .users-stats {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+  
+  .role-stats {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 576px) {
+  .users-table {
+    display: block;
+    overflow-x: auto;
+  }
+  
+  .user-id {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
+  }
+  
+  .role-badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
+  }
+}

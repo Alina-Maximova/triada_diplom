@@ -1,0 +1,99 @@
+/* Material.css с общим стилем */
+
+.Material-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid var(--primary-orange);
+}
+
+.Material-list-header h4 {
+  margin: 0;
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+
+.Material-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.Material-card {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: var(--card-shadow);
+  transition: all 0.2s ease;
+}
+
+.Material-card:hover {
+  box-shadow: var(--hover-shadow);
+  border-color: var(--primary-orange);
+}
+
+.Material-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.Material-details-table {
+  margin-bottom: 15px;
+}
+
+.Material-details-table td {
+  padding: 5px 0;
+  vertical-align: top;
+}
+
+.Material-details-table strong {
+  color: var(--text-medium);
+  font-weight: 500;
+}
+
+.Material-description {
+  font-size: 0.9em;
+  color: var(--text-light);
+  margin-top: 10px;
+}
+
+.Material-address-note {
+  font-size: 0.85em;
+  color: var(--text-light);
+  margin-top: 5px;
+  padding-left: 5px;
+  border-left: 3px solid var(--primary-orange);
+}
+
+.invoice-info {
+  background-color: var(--light-gray);
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-top: 10px;
+  border-left: 3px solid var(--primary-orange);
+}
+
+.invoice-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .Material-list-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .Material-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .Material-actions button {
+    margin-bottom: 5px;
+  }
+}

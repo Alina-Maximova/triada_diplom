@@ -1,0 +1,17 @@
+# Игнорировать node_modules везде
+node_modules/
+**/node_modules/
+
+# Игнорировать кеш сборки (Expo, React и т.д.)
+.cache/
+**/.cache/
+
+# Игнорировать билды
+dist/
+build/
+**/build/
+
+# Игнорировать временные файлы
+*.log
+*.tmp
+.DS_Store

@@ -1,0 +1,166 @@
+/* Основные цвета сайта из хедера */
+:root {
+  --primary-dark: #343a40;     /* Темный цвет из хедера */
+  --primary-orange: #ef8810;   /* Оранжевый акцент */
+  --white: #ffffff;
+}
+
+/* Убираем все отступы по умолчанию */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Фон на всю страницу */
+.home-background {
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, var(--primary-dark) 0%, #2c3036 100%);
+
+}
+
+.home-background > .container {
+  width: 100%;
+}
+
+.welcome-content {
+  color: var(--white);
+  padding-left: 20px;
+}
+
+.logo-container {
+  text-align: left;
+}
+
+.home-logo {
+  max-width: 320px;
+  height: auto;
+  margin-bottom: 30px;
+}
+
+.welcome-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--white);
+  line-height: 1.2;
+  margin-bottom: 1rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.text-orange {
+  color: var(--primary-orange) !important;
+}
+
+.login-wrapper {
+  background: var(--white);
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  margin-right: 20px;
+}
+
+/* Адаптивность */
+@media (max-width: 1199.98px) {
+  .welcome-title {
+    font-size: 2.2rem;
+  }
+  
+  .home-logo {
+    max-width: 280px;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .home-background {
+    padding: 40px 0;
+  }
+  
+  .welcome-content {
+    text-align: center;
+    padding-left: 0;
+    padding-bottom: 40px;
+  }
+  
+  .logo-container {
+    text-align: center;
+  }
+  
+  .welcome-title {
+    font-size: 2rem;
+  }
+  
+  .home-logo {
+    max-width: 250px;
+    margin: 0 auto 20px;
+  }
+  
+  .login-wrapper {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .welcome-title {
+    font-size: 1.8rem;
+  }
+  
+  .home-logo {
+    max-width: 200px;
+  }
+  
+  .login-wrapper {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .home-background {
+    padding: 20px 0;
+  }
+  
+  .welcome-title {
+    font-size: 1.6rem;
+  }
+  
+  .home-logo {
+    max-width: 180px;
+  }
+  
+  .login-wrapper {
+    padding: 1.25rem;
+  }
+}
+
+/* Гарантируем, что контейнер не создает отступов */
+.container {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 15px;
+}
+
+/* Убираем отступы у Row */
+.row {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* Убираем отступы у Col */
+.col, .col-lg-6 {
+  padding-left: 0;
+  padding-right: 0;
+}

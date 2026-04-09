@@ -1,0 +1,92 @@
+.react-calendar {
+  width: 100%;
+  background: transparent;
+  font-family: inherit;
+  border: none;
+}
+
+.react-calendar__tile {
+  position: relative;
+  padding: 1em 0.5em;
+}
+
+.task-dot-container {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+}
+
+.task-dot {
+  width: 6px;
+  height: 6px;
+  background-color: #ef8810;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.task-count {
+  font-size: 0.7rem;
+  color: #ef8810;
+  font-weight: bold;
+  margin-left: 2px;
+}
+
+.react-calendar__tile--active {
+  background: #f0f0f0 !important;
+  color:#ef8810
+}
+
+.react-calendar__tile--now {
+  background: #fff3e0 !important;
+}
+
+.react-calendar__tile:hover {
+  background: #e9ecef !important;
+}
+
+/* Стили для карточек задач */
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.task-list .card {
+  transition: transform 0.2s, box-shadow 0.2s;
+  border-left: 3px solid #ef8810 !important;
+}
+
+.task-list .card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+}
+
+/* Стили для badge времени */
+.badge.bg-info {
+  background-color: #17a2b8 !important;
+  color: white;
+  padding: 4px 8px;
+  font-weight: normal;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .react-calendar__tile {
+    padding: 0.75em 0.25em;
+    font-size: 0.9rem;
+  }
+  
+  .task-dot {
+    width: 4px;
+    height: 4px;
+  }
+  
+  .task-count {
+    font-size: 0.6rem;
+  }
+}

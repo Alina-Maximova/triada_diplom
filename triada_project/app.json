@@ -1,0 +1,176 @@
+{
+  "expo": {
+    "name": "triada_project",
+    "slug": "triada_project",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/logo.png",
+    "scheme": "triada_project",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Это приложение использует фото-библиотеку для выбора изображений для отчетов",
+        "NSCameraUsageDescription": "Это приложение использует камеру для съемки фото для отчетов",
+        "NSPhotoLibraryAddUsageDescription": "Это приложение сохраняет фото в вашу галерею",
+        "NSMicrophoneUsageDescription": "Это приложение использует микрофон для записи аудио",
+        "UIBackgroundModes": [
+          "audio",
+          "fetch"
+        ],
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": true,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSExceptionDomains": {
+            "194.87.238.237": {
+              "NSExceptionAllowsInsecureHTTPLoads": true,
+              "NSIncludesSubdomains": true
+            },
+            "localhost": {
+              "NSExceptionAllowsInsecureHTTPLoads": true,
+              "NSIncludesSubdomains": true
+            },
+            "10.0.2.2": {
+              "NSExceptionAllowsInsecureHTTPLoads": true,
+              "NSIncludesSubdomains": true
+            }
+          }
+        }
+      },
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/log1.png",
+        "backgroundImage": "./assets/images/background.png",
+        "monochromeImage": "./assets/images/log1.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_MEDIA_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.INTERNET",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.DOWNLOAD_WITHOUT_NOTIFICATION",
+        "android.permission.MANAGE_EXTERNAL_STORAGE"
+      ],
+      "package": "com.alinamaxi.triada_project"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/logo.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Разрешить доступ к фото-библиотеке для сохранения снимков",
+          "savePhotosPermission": "Разрешить сохранение снимков в фото-библиотеку",
+          "isAccessMediaLocationEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Разрешить $(PRODUCT_NAME) доступ к фото для выбора изображений"
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Разрешить $(PRODUCT_NAME) использовать ваше местоположение."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#ffffff",
+          "defaultVolume": true,
+          "defaultVibrate": true
+        }
+      ],
+      "expo-web-browser",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true,
+            "networkSecurityConfig": "@xml/network_security_config",
+            "allowBackup": true,
+            "requestLegacyExternalStorage": true
+          },
+          "ios": {
+            "usesNonExemptEncryption": false
+          }
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Разрешить $(PRODUCT_NAME) доступ к микрофону для записи звука.",
+          "recordAudioAndroid": true
+        }
+      ],
+      "react-native-video",
+      [
+        "expo-file-system",
+        {
+          "iosPhotoLibraryAddPermission": "Разрешить $(PRODUCT_NAME) сохранять файлы в фото-библиотеку",
+          "iosPhotoLibraryUsagePermission": "Разрешить $(PRODUCT_NAME) доступ к фото-библиотеке",
+          "androidPermissions": [
+            "android.permission.READ_EXTERNAL_STORAGE",
+            "android.permission.WRITE_EXTERNAL_STORAGE",
+            "android.permission.MANAGE_EXTERNAL_STORAGE"
+          ]
+        }
+      ],
+      [
+        "expo-sqlite",
+        {
+          "enableFTS": true,
+          "enableSQLite3": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c9b719fe-ef51-4ee2-bac0-ff4a3927f23c"
+      }
+    }
+  }
+}
