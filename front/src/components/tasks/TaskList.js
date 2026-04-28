@@ -30,6 +30,7 @@ import EditMaterialModal from '../materials/EditMaterialModal';
 import StatusModal from './StatusModal';
 import DeleteModal from './DeleteModal';
 import InvoiceModal from './InvoiceModal';
+import { getStatusText } from '../../utils/utils';
 
 const TaskList = ({ onEditTask }) => {
   const { data: tasks = [], isLoading, refetch } = useGetTasksQuery();
@@ -72,18 +73,7 @@ const TaskList = ({ onEditTask }) => {
   });
 
   // Статусные функции (можно импортировать из utils, но оставим локально для простоты)
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'new': return 'Новая';
-      case 'in_progress': return 'В работе';
-      case 'completed': return 'Выполнена';
-      case 'report_added': return 'Отчет добавлен';
-      case 'accepted_by_customer': return 'Принято клиентом';
-      case 'rejected': return 'Отклонено';
-      case 'cancelled': return 'Отменено';
-      default: return status;
-    }
-  };
+ 
 
   const confirmStatusChange = (task, newStatus) => {
     setSelectedTask(task);

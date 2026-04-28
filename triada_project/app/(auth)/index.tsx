@@ -81,7 +81,7 @@ function AuthScreen() {
               style={styles.input}
               mode="outlined"
               autoCapitalize="none"
-              left={<TextInput.Icon icon="username" />}
+              left={<TextInput.Icon icon="account" />}
             />
 
             <TextInput

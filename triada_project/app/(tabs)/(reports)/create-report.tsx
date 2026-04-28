@@ -1,5 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { View, ScrollView, Image, Alert, TouchableOpacity, Modal } from 'react-native';
+import {
+  View,
+  ScrollView,
+  Image,
+  Alert,
+  TouchableOpacity,
+  Modal,
+} from 'react-native';
 import {
   Appbar,
   Text,
@@ -20,6 +27,39 @@ import { Task } from '@/types';
 import { ReportFormStyles } from '@/styles/report/ReportFormStyles';
 import { fileService } from '@/services/file';
 
+// ============================================================
+// Вспомогательные функции
+// ============================================================
+
+// Определение MIME-типа по расширению файла (fallback)
+const getMimeTypeFromFileName = (fileName: string): string => {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  const mimeMap: Record<string, string> = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    pdf: 'application/pdf',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    txt: 'text/plain',
+    rtf: 'application/rtf',
+  };
+  return mimeMap[ext] || 'application/octet-stream';
+};
+
+// Дедупликация файлов по id
+const deduplicateAssets = (newAssets: MediaAsset[], existingAssets: MediaAsset[]): MediaAsset[] => {
+  return newAssets.filter(
+    (newItem) => !existingAssets.some((existing) => existing.id === newItem.id)
+  );
+};
+
 interface MediaAsset {
   uri: string;
   id: string;
@@ -29,16 +69,17 @@ interface MediaAsset {
   duration?: number;
   width?: number;
   height?: number;
+  mimeType?: string; // сохраняем MIME-тип для корректной загрузки
 }
 
 export default function CreateReportScreen() {
   const theme = useTheme();
   const styles = ReportFormStyles(theme);
   const { task: taskParam } = useLocalSearchParams();
-  const taskData = taskParam ? JSON.parse(taskParam as string) as Task : null;
-  
+  const taskData = taskParam ? (JSON.parse(taskParam as string) as Task) : null;
+
   const { createReport, deleteReport } = useReports();
-  
+
   const [description, setDescription] = useState('');
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,6 +99,47 @@ export default function CreateReportScreen() {
     return status === 'granted';
   };
 
+  // ========== Обработка выбранных файлов (с MIME-типами) ==========
+  const handleSelectedAssets = async (assets: any[]) => {
+    const newAssets: MediaAsset[] = assets.map((asset) => {
+      let type: 'image' | 'video' | 'document' = asset.type;
+      let fileName = asset.fileName || `media-${Date.now()}.${asset.type === 'video' ? 'mp4' : 'jpg'}`;
+      let mimeType = asset.mimeType;
+
+      // Для документов из DocumentPicker
+      if (asset.type === 'document') {
+        type = 'document';
+        fileName = asset.name;
+        mimeType = asset.mimeType;
+      }
+
+      // Если mimeType отсутствует, определяем по расширению
+      if (!mimeType) {
+        mimeType = getMimeTypeFromFileName(fileName);
+      }
+
+      return {
+        uri: asset.uri,
+        id: asset.assetId || `media-${Date.now()}-${Math.random()}`,
+        fileName: fileName,
+        type: type,
+        size: asset.size,
+        duration: asset.duration,
+        width: asset.width,
+        height: asset.height,
+        mimeType: mimeType,
+      };
+    });
+
+    const uniqueNewAssets = deduplicateAssets(newAssets, mediaAssets);
+    if (uniqueNewAssets.length > 0) {
+      setMediaAssets((prev) => [...prev, ...uniqueNewAssets]);
+      setSnackbarMessage(`Добавлено ${uniqueNewAssets.length} файлов`);
+    } else {
+      setSnackbarMessage('Эти файлы уже добавлены');
+    }
+  };
+
   // Выбор из галереи (фото/видео)
   const pickFromGallery = async () => {
     const hasPermission = await requestGalleryPermission();
@@ -73,7 +155,7 @@ export default function CreateReportScreen() {
       videoMaxDuration: 60,
     });
     if (!result.canceled && result.assets) {
-      handleSelectedAssets(result.assets);
+      await handleSelectedAssets(result.assets);
     }
   };
 
@@ -90,7 +172,7 @@ export default function CreateReportScreen() {
       allowsEditing: false,
     });
     if (!result.canceled && result.assets) {
-      handleSelectedAssets(result.assets);
+      await handleSelectedAssets(result.assets);
     }
   };
 
@@ -108,7 +190,7 @@ export default function CreateReportScreen() {
       allowsEditing: true,
     });
     if (!result.canceled && result.assets) {
-      handleSelectedAssets(result.assets);
+      await handleSelectedAssets(result.assets);
     }
   };
 
@@ -121,14 +203,15 @@ export default function CreateReportScreen() {
         copyToCacheDirectory: true,
       });
       if (!result.canceled && result.assets) {
-        const docs = result.assets.map(asset => ({
+        const docs = result.assets.map((asset) => ({
           uri: asset.uri,
           id: `doc-${Date.now()}-${Math.random()}`,
-          fileName: asset.name,
-          type: 'document' as const,
+          name: asset.name,
+          type: 'document',
           size: asset.size,
+          mimeType: asset.mimeType, // DocumentPicker возвращает mimeType
         }));
-        handleSelectedAssets(docs);
+        await handleSelectedAssets(docs);
       }
     } catch (error) {
       console.error('Error picking document:', error);
@@ -136,45 +219,9 @@ export default function CreateReportScreen() {
     }
   };
 
-  // Обработка выбранных файлов
-  const handleSelectedAssets = (assets: any[]) => {
-    const newAssets: MediaAsset[] = assets.map(asset => {
-      if (asset.type === 'document') {
-        return {
-          uri: asset.uri,
-          id: asset.id,
-          fileName: asset.name,
-          type: 'document',
-          size: asset.size,
-        };
-      } else {
-        return {
-          uri: asset.uri,
-          id: asset.assetId || `media-${Date.now()}-${Math.random()}`,
-          fileName: asset.fileName || `media-${Date.now()}.${asset.type === 'video' ? 'mp4' : 'jpg'}`,
-          type: asset.type as 'image' | 'video',
-          duration: asset.duration,
-          width: asset.width,
-          height: asset.height,
-        };
-      }
-    });
-
-    const uniqueNewAssets = newAssets.filter(
-      newItem => !mediaAssets.some(existing => existing.id === newItem.id)
-    );
-
-    if (uniqueNewAssets.length > 0) {
-      setMediaAssets(prev => [...prev, ...uniqueNewAssets]);
-      setSnackbarMessage(`Добавлено ${uniqueNewAssets.length} файлов`);
-    } else {
-      setSnackbarMessage('Эти файлы уже добавлены');
-    }
-  };
-
   // Удаление выбранного файла перед загрузкой
   const removeMedia = (index: number) => {
-    setMediaAssets(prev => prev.filter((_, i) => i !== index));
+    setMediaAssets((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Воспроизведение видео
@@ -201,7 +248,33 @@ export default function CreateReportScreen() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Отправка отчета
+  // ========== Пакетная загрузка файлов ==========
+  const uploadReportFiles = async (reportId: number) => {
+    if (mediaAssets.length === 0) return;
+
+    const filesToUpload = mediaAssets.map((asset) => {
+      // Используем сохранённый mimeType или fallback
+      const mimeType =
+        asset.mimeType || getMimeTypeFromFileName(asset.fileName || 'file');
+      return {
+        uri: asset.uri,
+        name: asset.fileName || `file-${Date.now()}`,
+        type: mimeType,
+      };
+    });
+
+    const descriptions = mediaAssets.map(() => description.trim() || null);
+
+    await fileService.uploadMultipleFiles(
+      filesToUpload,
+      taskData!.id,
+      'report',        // entityType = 'report'
+      reportId,        // entityId = id созданного отчёта
+      descriptions
+    );
+  };
+
+  // ========== Отправка отчёта ==========
   const handleSubmit = async () => {
     if (!description.trim()) {
       Alert.alert('Внимание', 'Добавьте описание работ');
@@ -217,47 +290,27 @@ export default function CreateReportScreen() {
     try {
       setIsSubmitting(true);
 
-      // 1. Создаём отчет (без файлов)
+      // 1. Создаём отчёт (без файлов)
       const reportResult = await createReport({
         task_id: taskData.id,
         description: description.trim(),
       });
+      createdReportId = reportResult.report.id; // предполагаем, что сервер возвращает объект с id
 
-      createdReportId = reportResult.id; // предполагаем, что сервер возвращает объект с id
-
-      // 2. Загружаем медиафайлы через fileService, если есть
+      // 2. Загружаем медиафайлы, если есть
       if (mediaAssets.length > 0) {
         setSnackbarMessage(`Загружаем ${mediaAssets.length} файлов...`);
-
-        const filesToUpload = mediaAssets.map(asset => ({
-          uri: asset.uri,
-          name: asset.fileName,
-          type: asset.type === 'video' ? 'video/mp4' : 
-                asset.type === 'image' ? 'image/jpeg' : 'application/octet-stream',
-        }));
-
-        const descriptions = mediaAssets.map(() => `Файл отчета`);
-
-        const uploadedFiles = await fileService.uploadMultipleFiles(
-          filesToUpload,
-          taskData.id,
-          'report',
-          createdReportId,
-          descriptions
-        );
-
-        console.log('Загружено файлов:', uploadedFiles.length);
+        await uploadReportFiles(createdReportId);
       }
 
       setSnackbarMessage('Отчет успешно создан');
-      setDescription("")
-      setMediaAssets([])
+      setDescription('');
+      setMediaAssets([]);
       setTimeout(() => router.back(), 1500);
-
     } catch (error: any) {
       console.error('Error submitting report:', error);
 
-      // Если отчет был создан, но файлы не загрузились, удаляем его
+      // Если отчёт был создан, но файлы не загрузились – удаляем его
       if (createdReportId) {
         try {
           await deleteReport(createdReportId);
@@ -296,7 +349,10 @@ export default function CreateReportScreen() {
         <Appbar.Content title="Создание отчета" />
       </Appbar.Header>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.taskInfo}>
           <Text variant="titleMedium" style={styles.taskTitle}>
             Задача: {taskData.title}
@@ -329,41 +385,112 @@ export default function CreateReportScreen() {
           </Text>
 
           <View style={styles.mediaButtons}>
-            <Button mode="outlined" onPress={pickFromGallery} icon="image-multiple" style={styles.mediaButton} disabled={isSubmitting}>Галерея</Button>
-            <Button mode="outlined" onPress={takePhoto} icon="camera" style={styles.mediaButton} disabled={isSubmitting}>Фото</Button>
-            <Button mode="outlined" onPress={recordVideo} icon="video" style={styles.mediaButton} disabled={isSubmitting}>Видео</Button>
-            <Button mode="outlined" onPress={pickDocument} icon="file-document" style={styles.mediaButton} disabled={isSubmitting}>Документы</Button>
+            <Button
+              mode="outlined"
+              onPress={pickFromGallery}
+              icon="image-multiple"
+              style={styles.mediaButton}
+              disabled={isSubmitting}
+            >
+              Галерея
+            </Button>
+            <Button
+              mode="outlined"
+              onPress={takePhoto}
+              icon="camera"
+              style={styles.mediaButton}
+              disabled={isSubmitting}
+            >
+              Фото
+            </Button>
+            <Button
+              mode="outlined"
+              onPress={recordVideo}
+              icon="video"
+              style={styles.mediaButton}
+              disabled={isSubmitting}
+            >
+              Видео
+            </Button>
+            <Button
+              mode="outlined"
+              onPress={pickDocument}
+              icon="file-document"
+              style={styles.mediaButton}
+              disabled={isSubmitting}
+            >
+              Документы
+            </Button>
           </View>
 
           {mediaAssets.length > 0 && (
             <View style={styles.selectedMediaContainer}>
               <View style={styles.mediaStats}>
-                <Chip icon="image" style={styles.mediaChip}>Фото: {mediaAssets.filter(m => m.type === 'image').length}</Chip>
-                <Chip icon="video" style={styles.mediaChip}>Видео: {mediaAssets.filter(m => m.type === 'video').length}</Chip>
-                <Chip icon="file-document" style={styles.mediaChip}>Документы: {mediaAssets.filter(m => m.type === 'document').length}</Chip>
+                <Chip icon="image" style={styles.mediaChip}>
+                  Фото: {mediaAssets.filter((m) => m.type === 'image').length}
+                </Chip>
+                <Chip icon="video" style={styles.mediaChip}>
+                  Видео: {mediaAssets.filter((m) => m.type === 'video').length}
+                </Chip>
+                <Chip icon="file-document" style={styles.mediaChip}>
+                  Документы:{' '}
+                  {mediaAssets.filter((m) => m.type === 'document').length}
+                </Chip>
               </View>
               <View style={styles.mediaContainer}>
                 {mediaAssets.map((media, index) => (
                   <View key={media.id} style={styles.mediaItem}>
-                    <TouchableOpacity onPress={() => media.type === 'video' ? playVideo(media) : null}>
+                    <TouchableOpacity
+                      onPress={() =>
+                        media.type === 'video' ? playVideo(media) : null
+                      }
+                    >
                       {media.type === 'image' ? (
-                        <Image source={{ uri: media.uri }} style={styles.mediaThumbnail} />
+                        <Image
+                          source={{ uri: media.uri }}
+                          style={styles.mediaThumbnail}
+                        />
                       ) : media.type === 'video' ? (
                         <View style={styles.videoContainer}>
-                          <Image source={{ uri: media.uri }} style={styles.videoThumbnail} />
+                          <Image
+                            source={{ uri: media.uri }}
+                            style={styles.videoThumbnail}
+                          />
                           <View style={styles.videoOverlay}>
-                            <MaterialIcons name="play-circle-filled" size={40} color="white" />
-                            {media.duration && <Text style={styles.videoDuration}>{formatVideoDuration(media.duration)}</Text>}
+                            <MaterialIcons
+                              name="play-circle-filled"
+                              size={40}
+                              color="white"
+                            />
+                            {media.duration && (
+                              <Text style={styles.videoDuration}>
+                                {formatVideoDuration(media.duration)}
+                              </Text>
+                            )}
                           </View>
                         </View>
                       ) : (
                         <View style={styles.documentContainer}>
-                          <MaterialIcons name="insert-drive-file" size={40} color={theme.colors.primary} />
+                          <MaterialIcons
+                            name="insert-drive-file"
+                            size={40}
+                            color={theme.colors.primary}
+                          />
                         </View>
                       )}
                     </TouchableOpacity>
-                    <IconButton icon="close" size={14} style={styles.removeMediaButton} onPress={() => removeMedia(index)} iconColor="white" />
-                    {media.type === 'video' && <View style={styles.videoBadge}><MaterialIcons name="videocam" size={12} color="white" /></View>}
+                    <IconButton
+                      icon="close"
+                      size={14}
+                      style={styles.removeMediaButton}
+                      onPress={() => removeMedia(index)}
+                      iconColor="white"
+                    />
+                    {media.type === 'video' && (
+                      <View style={styles.videoBadge}>
+                        <MaterialIcons name="videocam" size={12} color="white" />
+                      </View>
+                    )}
                   </View>
                 ))}
               </View>
@@ -372,18 +499,41 @@ export default function CreateReportScreen() {
         </View>
 
         <View style={styles.actions}>
-          <Button mode="outlined" onPress={handleCancel} style={styles.button} disabled={isSubmitting}>Отмена</Button>
-          <Button mode="contained" onPress={handleSubmit} style={styles.button} loading={isSubmitting} disabled={isSubmitting || !description.trim()}>
-            {mediaAssets.length > 0 ? `Создать отчет (${mediaAssets.length})` : 'Создать отчет'}
+          <Button
+            mode="outlined"
+            onPress={handleCancel}
+            style={styles.button}
+            disabled={isSubmitting}
+          >
+            Отмена
+          </Button>
+          <Button
+            mode="contained"
+            onPress={handleSubmit}
+            style={styles.button}
+            loading={isSubmitting}
+            disabled={isSubmitting || !description.trim()}
+          >
+            {mediaAssets.length > 0
+              ? `Создать отчет (${mediaAssets.length})`
+              : 'Создать отчет'}
           </Button>
         </View>
       </ScrollView>
 
-      <Modal visible={videoModalVisible} transparent={true} animationType="slide" onRequestClose={closeVideoPlayer}>
+      <Modal
+        visible={videoModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={closeVideoPlayer}
+      >
         <View style={styles.videoModal}>
           <Appbar.Header style={styles.videoModalHeader}>
             <Appbar.BackAction onPress={closeVideoPlayer} iconColor="white" />
-            <Appbar.Content title="Просмотр видео" titleStyle={{ color: 'white' }} />
+            <Appbar.Content
+              title="Просмотр видео"
+              titleStyle={{ color: 'white' }}
+            />
           </Appbar.Header>
           {selectedMedia && (
             <VideoPlayer

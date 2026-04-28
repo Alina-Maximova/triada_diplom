@@ -5,15 +5,15 @@ import { Platform } from 'react-native';
 export const getApiBaseUrl = (): string => {
   // Для production используем прямой IP
   if (!__DEV__) {
-    return 'http://192.168.0.100:5000';
+    return 'http://192.168.0.101:5000';
   }
   
   // Для development
   if (Platform.OS === 'android') {
-    return 'http://192.168.0.100:5000'; // Android эмулятор
+    return 'http://192.168.0.101:5000'; // Android эмулятор
   }
   
-  return 'http://192.168.0.100:5000'; // iOS симулятор или другое
+  return 'http://192.168.0.101:5000'; // iOS симулятор или другое
 };
 
 export const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || getApiBaseUrl();
