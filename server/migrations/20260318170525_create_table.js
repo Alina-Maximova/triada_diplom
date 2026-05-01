@@ -32,7 +32,7 @@ exports.up = async function (knex) {
     table.increments('id').primary();
     table.string('title', 255).notNullable();
     table.text('description');
-    table.string('phone', 20).notNullable();
+    table.string('phone', 255).notNullable();
     table.string('customer', 255).notNullable();
     table.timestamp('start_date').notNullable();
     table.timestamp('due_date').notNullable();

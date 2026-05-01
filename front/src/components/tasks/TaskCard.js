@@ -20,7 +20,7 @@ import ArchiveIcon from '@mui/icons-material/Archive';
 import { useDownloadTaskArchiveMutation } from '../../redux/apiSlice';
 import { toast } from 'react-toastify';
 import { getAvailableStatuses, getStatusColor, getStatusDescription, getStatusText } from '../../utils/utils';
-
+import { decryptData } from '../../utils/encryption';
 // Компонент для отображения материалов (мини-список)
 const MaterialsList = ({ materials }) => {
   if (!materials || materials.length === 0) {
@@ -199,8 +199,8 @@ const TaskCard = ({
 
         <Table borderless size="sm">
           <tbody>
-            <tr><td width="120"><strong>Клиент:</strong></td><td>{task.customer}</td></tr>
-            <tr><td><strong>Телефон:</strong></td><td>{task.phone}</td></tr>
+            <tr><td width="120"><strong>Клиент:</strong></td><td>{decryptData(task.customer)}</td></tr>
+            <tr><td><strong>Телефон:</strong></td><td>{decryptData(task.phone)}</td></tr>
             <tr><td><strong>Адрес:</strong></td><td>{task.address || 'Не указан'}</td></tr>
             <tr><td><strong>Начало:</strong></td><td>{formatDate(task.start_date)}</td></tr>
             <tr><td><strong>Окончание:</strong></td><td>{formatDate(task.due_date)}</td></tr>

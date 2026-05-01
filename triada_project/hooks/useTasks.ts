@@ -6,6 +6,7 @@ import { SyncQueueService } from '@/services/syncQueueService';
 import NetInfo from '@react-native-community/netinfo';
 import * as SecureStore from 'expo-secure-store';
 import { STORAGE_KEYS } from '@/constants';
+import { encrypt, decrypt } from '@/utils/encryption';
 
 export const useTasks = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -56,16 +57,22 @@ export const useTasks = () => {
     const isConnected = await CacheService.isConnected();
     const token = await SecureStore.getItemAsync(STORAGE_KEYS.AUTH_TOKEN);
     if (!token) throw new Error('Не авторизован');
-
+ // Для UI используем оригинальные (незашифрованные) данные
+    const displayData = data;
     if (!isConnected) {
       // Оптимистическое обновление
+        const encryptedData = {
+        ...data,
+        phone: encrypt(data.phone),
+        customer: encrypt(data.customer),
+      };
       const tempId = -Date.now();
       const tempTask: Task = {
         id: tempId,
         title: data.title,
         description: data.description,
-        phone: data.phone,
-        customer: data.customer,
+         phone: displayData.phone,         // расшифрованный для UI
+        customer: displayData.customer,   // расшифрованный для UI
         addressNote: data.addressNote,
         status: 'new',
         start_date: data.start_date,
@@ -92,12 +99,11 @@ export const useTasks = () => {
       await SyncQueueService.addToQueue({
         method: 'POST',
         url: '/tasks',
-        data: data,
+        data: encryptedData,
         tempId: tempId,
       });
       return tempTask;
     }
-
     try {
       setIsLoading(true);
       setError(null);
@@ -122,15 +128,20 @@ export const useTasks = () => {
       setTasks(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
       if (task?.id === id) setTask(prev => prev ? { ...prev, ...data } : prev);
 
+          // Подготавливаем зашифрованные данные для очереди
+      const encryptedData = { ...data };
+      if (data.phone) encryptedData.phone = encrypt(data.phone);
+      if (data.customer) encryptedData.customer = encrypt(data.customer);
+
       await SyncQueueService.addToQueue({
         method: 'PUT',
         url: `/tasks/${id}`,
-        data: data,
+        data: encryptedData,
       });
       return { id, ...data } as Task;
     }
 
-    try {
+      try {
       setIsLoading(true);
       setError(null);
       const updatedTask = await taskService.updateTask(id, data);

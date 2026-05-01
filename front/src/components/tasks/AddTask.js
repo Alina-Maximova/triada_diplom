@@ -8,7 +8,7 @@ import {
 import { toast } from 'react-toastify';
 import { useAddTasksMutation, useUpdateTaskMutation } from '../../redux/apiSlice';
 import MapPicker from './MapPicker';
-
+import { encryptData, decryptData } from '../../utils/encryption';
 const PHONE_PLACEHOLDER = '+7 (999) 999-99-99';
 const PHONE_PATTERN = /^\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}$/;
 const CUSTOMER_PATTERN = /^[а-яА-ЯёЁ\s-]{2,}$/;
@@ -104,6 +104,8 @@ const AddTask = ({ onTaskCreated, initialData = null }) => {
     if (initialData) {
       const formattedData = {
         ...initialData,
+         phone: decryptData(initialData.phone),
+      customer: decryptData(initialData.customer),
         start_date: initialData.start_date ? new Date(initialData.start_date) : null,
         due_date: initialData.due_date ? new Date(initialData.due_date) : null,
         startTime: initialData.start_date ? new Date(initialData.start_date) : new Date(new Date().setHours(9, 0, 0, 0)),
@@ -235,8 +237,8 @@ const AddTask = ({ onTaskCreated, initialData = null }) => {
       const taskData = {
         title: data.title.trim(),
         description: data.description.trim(),
-        phone: data.phone,
-        customer: data.customer.trim(),
+         phone: encryptData(data.phone),            
+    customer: encryptData(data.customer.trim()), 
         address: data.location?.address || '',
         addressNote: data.addressNote?.trim() || '',
         location: data.location,

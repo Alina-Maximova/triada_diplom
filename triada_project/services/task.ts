@@ -1,25 +1,42 @@
 import { Task, CreateTaskData } from '@/types';
 import api from './apiClient';
+import { encrypt, decrypt } from '@/utils/encryption';
 
 export const taskService = {
   async getTasks(): Promise<Task[]> {
     const response = await api.get('/tasks');
-    return response.data;
+    return response.data.map((task: Task) => ({
+      ...task,
+      phone: decrypt(task.phone),
+      customer: decrypt(task.customer),
+    }));
   },
-
   async getTask(id: number): Promise<Task> {
     const response = await api.get(`/tasks/${id}`);
-    return response.data;
+    const task = response.data;
+    return {
+      ...task,
+      phone: decrypt(task.phone),
+      customer: decrypt(task.customer),
+    };
   },
 
   async createTask(data: CreateTaskData): Promise<Task> {
-    const response = await api.post('/tasks', data);
-    return response.data;
+    const encryptedData = {
+      ...data,
+      phone: encrypt(data.phone),
+      customer: encrypt(data.customer),
+    };
+    const response = await api.post('/tasks', encryptedData);
+    return response.data
   },
 
-  async updateTask(id: number, data: Partial<Task>): Promise<Task> {
-    const response = await api.put(`/tasks/${id}`, data);
-    return response.data;
+   async updateTask(id: number, data: Partial<Task>): Promise<Task> {
+    const encryptedData = { ...data };
+    if (data.phone) encryptedData.phone = encrypt(data.phone);
+    if (data.customer) encryptedData.customer = encrypt(data.customer);
+    const response = await api.put(`/tasks/${id}`, encryptedData);
+    return response.data
   },
 
   async updateTaskStatus(id: number, data: { status: string; pause_reason?: string }): Promise<Task> {
